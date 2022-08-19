@@ -1,0 +1,24 @@
+import io
+import sys
+PATH = '/home/btchinianga/PhoneticFeatures' # Change to the local project path
+sys.path.append(PATH) if PATH not in list(sys.path) else None
+#from logic.text_analysis import TextAnalysis
+from logic.text_analysis_Copy import TextAnalysis
+from logic.feature_extraction import FeatureExtraction
+
+lang = 'es'
+setting = {'url': True, 'mention': False, 'emoji': False,'hashtag': True, 'lemmatizer': False, 'stopwords': False}
+
+ta = TextAnalysis(lang=lang)
+fe = FeatureExtraction(lang=lang, text_analysis=ta)
+
+text_list = ['Vine a ver si se habían muerto en el apocalipsis y aún sigo leyendo sus tuits bien de la chingada', 
+             'Presidenta del senado!! esta comunista ? Seguimos en caída libre !! 😡😡 #URL#', 
+             'AMERICA que Goooool', 'america un simple gol', 'Se puede', 'Se puede?', 'Se puede!']
+             
+#Get Syllabification Features
+text_clean = [ta.clean_text(row, **setting) for row in text_list]
+text_feature = [fe.get_feature_syllable(i) for i in text_clean] 
+
+#Get All Phoneme Features
+fe.get_feature_phoneme(text_clean[1], one=False)
