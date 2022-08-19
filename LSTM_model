@@ -1,0 +1,93 @@
+import numpy as np
+import pandas as pd
+from tensorflow import keras
+from tensorflow.keras import layers
+from keras.preprocessing.text import Tokenizer
+from keras_preprocessing.sequence import pad_sequences
+import seaborn as sn
+import matplotlib.pyplot as plt
+import re
+
+max_features = 100000  # Only consider the top 20k words 
+maxlen = 200  # Only consider the first 200 words of each movie review
+
+"""
+## Build the model
+"""
+
+# Input for variable-length sequences of integers
+inputs = keras.Input(shape=(None,), dtype="int32")
+# Embed each integer in a 128-dimensional vector
+x = layers.Embedding(max_features, 128)(inputs)
+# Add 2 bidirectional LSTMs
+x = layers.Bidirectional(layers.LSTM(64, return_sequences=True))(x)
+x = layers.Bidirectional(layers.LSTM(64))(x)
+# Add a classifier
+outputs = layers.Dense(1, activation="sigmoid")(x)
+model = keras.Model(inputs, outputs)
+model.summary()
+
+"""
+## Load the IMDB movie review sentiment data
+"""
+
+(x_train, y_train), (x_val, y_val) = keras.datasets.imdb.load_data(
+    num_words=max_features
+)
+print(len(x_train), "Training sequences")
+print(len(x_val), "Validation sequences")
+# Use pad_sequence to standardize sequence length:
+# this will truncate sequences longer than 200 words and zero-pad sequences shorter than 200 words.
+x_train = keras.preprocessing.sequence.pad_sequences(x_train, maxlen=maxlen)
+x_val = keras.preprocessing.sequence.pad_sequences(x_val, maxlen=maxlen)
+
+"""
+## Train and evaluate the model
+You can use the trained model hosted on [Hugging Face Hub](https://huggingface.co/keras-io/bidirectional-lstm-imdb)
+and try the demo on [Hugging Face Spaces](https://huggingface.co/spaces/keras-io/bidirectional_lstm_imdb).
+"""
+
+model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
+model.fit(x_train, y_train, batch_size=32, epochs=7, validation_data=(x_val, y_val))
+
+
+tokenizer = Tokenizer(num_words=max_features, split=' ')
+
+# Recuperation de la data
+data2_columns = ["target", "id", "date", "flag", "user", "text"]
+data2_encoding = "ISO-8859-1"
+data2 = pd.read_csv('/Users/bastientchinianga/Desktop/Stage/Python/Modele_regression/testdata.manual.2009.06.14.csv', encoding =data2_encoding , names=data2_columns)
+data2 = data2.drop(columns=["date", "flag","user"])
+data2 = data2[data2.target != 2]
+data2['text'] = data2['text'].apply(lambda x: x.lower())
+data2['text'] = data2['text'].apply((lambda x: re.sub('[^a-zA-z0-9\s]','',x)))
+
+tokenizer.fit_on_texts(data2['text'].values)
+test = tokenizer.texts_to_sequences(data2['text'].values)
+test = pad_sequences(test, maxlen=128, dtype='int32', value =0)
+
+sentiment3 = model.predict(test)
+
+pred_labels = [] 
+for i in sentiment3 : 
+    if  (i>=0.5) : 
+        pred_labels.append('Positive') 
+    else : 
+        pred_labels.append('Negative') 
+        
+data2['LSTM_sentiment'] = pred_labels
+
+lista = []
+for x in data2['target']:
+    if x == 4:
+        lista.append('Positive')
+    else :
+        lista.append('Negative ')
+data2['real_sentiment'] = lista
+
+#Matrice de confusion 
+confusion_matrix = pd.crosstab(data2['real_sentiment'], data2['LSTM_sentiment'], rownames=['Actual'], colnames=['Predicted'])
+print (confusion_matrix)
+
+sn.heatmap(confusion_matrix, annot=True)
+plt.show()
