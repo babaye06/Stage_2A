@@ -1,1 +1,45 @@
+import pandas as pd 
+import numpy as np
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import seaborn as sn
+import matplotlib.pyplot as plt
+
+#Importation de la data + creation dataframe
+data2_columns = ["target", "id", "date", "flag", "user", "text"]
+data2_encoding = "ISO-8859-1"
+data2 = pd.read_csv('testdata.manual.2009.06.14.csv', encoding =data2_encoding , names=data2_columns)
+data2 = data2.drop(columns=["date", "flag","user"])
+data2 = data2[data2.target != 2]
+
+
+# Ici je fais une liste de tous les positif, negatif ou neutre. 
+#Une premiere qui etait celles qui etait deja donné et l'autre avec notre modele VADER
+lista = []
+for x in data2['target']:
+    if x == 4:
+        lista.append('Positive')
+    else :
+        lista.append('Negative ')
+#print(lista)
+data2['real_sentiment'] = lista
+
+data2['VADER'] = np.vectorize(getsentiment)(data2.text)
+#print (data2)
+lista2 = []
+for x2 in data2['VADER']:
+    if x2 > 0:
+        lista2.append('Positive')
+    else:
+        lista2.append('Negative')
+
+data2['VADER_sentiment'] = lista2
+
+
+#Matrice de confusion
+confusion_matrix = pd.crosstab(data2['real_sentiment'], data2['VADER_sentiment'], rownames=['Actual'], colnames=['Predicted'])
+print (confusion_matrix)
+
+sn.heatmap(confusion_matrix, annot=True)
+plt.show()
+
 
