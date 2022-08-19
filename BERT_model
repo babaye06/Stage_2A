@@ -1,1 +1,59 @@
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+import requests
+from bs4 import BeautifulSoup
+import re
 
+#Importation du modele 
+tokenizer = AutoTokenizer.from_pretrained('nlptown/bert-base-multilingual-uncased-sentiment')
+model = AutoModelForSequenceClassification.from_pretrained('nlptown/bert-base-multilingual-uncased-sentiment')
+
+tokens = tokenizer.encode('I hated this, is the worst',return_tensors='pt')
+result = model(tokens)
+
+import pandas as pd 
+import numpy as np
+
+#Creation de la dataframe
+data_columns = ["target", "id", "date", "flag", "user", "text"]
+data_encoding = "ISO-8859-1"
+data = pd.read_csv('testdata.manual.2009.06.14.csv', encoding =data_encoding , names=data_columns)
+data = data.drop(columns=["date", "flag","user"])
+data = data[data.target != 2]
+
+#Ajout de la colonne de sentiment reel
+lista = []
+for x in data['target']:
+    if x == 4:
+        lista.append('Positive')
+    else :
+        lista.append('Negative ')
+#print(lista)
+data['real_sentiment'] = lista
+
+#Fonction pour determiner le sentiment d'une séquence
+def sentiment_score(text):
+    tokens = tokenizer.encode(text,return_tensors='pt')
+    result = model(tokens)
+    return int(torch.argmax(result.logits))+1
+    
+#Ajout de la colonne de sentiment bert
+data['BERT_sentiment'] = data['text'].apply(lambda x : sentiment_score(x))
+lista2 = []
+for x in data['BERT_sentiment']:
+    if x > 3 :
+        lista2.append('Positive')
+    else :
+        lista2.append('Negative ')
+#print(lista)
+data['BERT_sentiment2'] = lista2
+    
+import seaborn as sn
+import matplotlib.pyplot as plt
+
+#Matrice de confusion
+confusion_matrix = pd.crosstab(data['real_sentiment'], data['BERT_sentiment2'], rownames=['Actual'], colnames=['Predicted'])
+print (confusion_matrix)
+
+sn.heatmap(confusion_matrix, annot=True)
+plt.show()
